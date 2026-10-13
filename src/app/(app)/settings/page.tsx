@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PrivacyToggle } from "@/components/profile/privacy-toggle";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui";
@@ -26,6 +27,18 @@ export default async function SettingsPage() {
         <section>
           <h2 className="mb-5 font-display text-2xl">Perfil</h2>
           <ProfileForm userId={profile.id} profile={profile} submitLabel="Guardar cambios" />
+        </section>
+
+        <section>
+          <h2 className="mb-4 font-display text-2xl">Privacidad</h2>
+          <PrivacyToggle isPrivate={profile.is_private} />
+          <Link
+            href="/requests"
+            className="mt-2 flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3.5 text-[15px] font-medium"
+          >
+            Solicitudes de seguimiento
+            <span aria-hidden className="text-fg-soft">›</span>
+          </Link>
         </section>
 
         <section>

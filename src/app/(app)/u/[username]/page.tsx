@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StreakBadge } from "@/components/outfit/streak-badge";
 import { WeekStrip } from "@/components/outfit/week-strip";
-import { Avatar, ButtonLink } from "@/components/ui";
+import { FollowButton } from "@/components/profile/follow-button";
+import { Avatar, ButtonLink, buttonClass } from "@/components/ui";
 import { requireProfile } from "@/lib/auth";
 import { addDays, effectiveStreak, todayIn } from "@/lib/dates";
+import { countPendingRequests, getFollowCounts, getFollowStatus } from "@/lib/follows";
 import { getOutfitsSince } from "@/lib/outfits";
 import { buildStrip } from "@/lib/strip";
 import { createClient } from "@/lib/supabase/server";
@@ -31,7 +33,12 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
   if (!profile) notFound();
   const isMe = me.id === profile.id;
   const today = todayIn(profile.timezone);
-  const canView = isMe || !profile.is_private;
+  const [followStatus, counts, requests] = await Promise.all([
+    isMe ? null : getFollowStatus(me.id, profile.id),
+    getFollowCounts(profile.id),
+    isMe ? countPendingRequests(me.id) : 0,
+  ]);
+  const canView = isMe || !profile.is_private || followStatus === "accepted";
   const outfits = canView ? await getOutfitsSince(profile.id, addDays(today, -6)) : [];
   const strip = buildStrip(today, outfits);
   const postedToday = outfits.some((o) => o.post_date === today);
@@ -61,15 +68,59 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
 
         {profile.bio && <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-line">{profile.bio}</p>}
 
-        <div className="mt-5 flex gap-2">
+        <dl className="mt-4 flex gap-5 text-sm">
+          <div className="flex gap-1">
+            <dt className="sr-only">Seguidores</dt>
+            <dd>
+              <span className="font-semibold">{counts.followers}</span>{" "}
+              <span className="text-fg-soft">{counts.followers === 1 ? "seguidor" : "seguidores"}</span>
+            </dd>
+          </div>
+          <div className="flex gap-1">
+            <dt className="sr-only">Seguidos</dt>
+            <dd>
+              <span className="font-semibold">{counts.following}</span> <span className="text-fg-soft">seguidos</span>
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-5 flex items-start gap-2">
           {isMe ? (
             <ButtonLink href="/settings" variant="secondary" className="h-10 flex-1">
               Editar perfil
             </ButtonLink>
           ) : (
-            <p className="text-xs text-fg-soft">Seguir y enviar mensaje llegan en las fases 3 y 5.</p>
+            <>
+              <FollowButton
+                targetId={profile.id}
+                status={followStatus}
+                isPrivate={profile.is_private}
+                username={profile.username}
+              />
+              <button
+                type="button"
+                disabled
+                title="Los mensajes llegan en la fase 5"
+                className={buttonClass("secondary", "h-10 flex-1")}
+              >
+                Mensaje
+              </button>
+            </>
           )}
         </div>
+
+        {isMe && requests > 0 && (
+          <Link
+            href="/requests"
+            className="mt-3 flex items-center justify-between rounded-2xl bg-muted px-4 py-3 text-sm"
+          >
+            <span>
+              <span className="font-medium">Solicitudes de seguimiento</span>
+              <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-accent-fg">{requests}</span>
+            </span>
+            <span aria-hidden>›</span>
+          </Link>
+        )}
       </section>
 
       <section className="mt-6 px-5">
@@ -89,7 +140,9 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
           <WeekStrip days={strip} />
         ) : (
           <p className="rounded-2xl bg-muted px-4 py-6 text-center text-sm text-fg-soft">
-            Esta cuenta es privada. Sus outfits solo los ven sus seguidores.
+            {followStatus === "pending"
+              ? "Solicitud enviada. Verás sus outfits cuando te acepte."
+              : "Esta cuenta es privada. Síguela para ver sus outfits."}
           </p>
         )}
       </section>
