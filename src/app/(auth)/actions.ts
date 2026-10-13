@@ -1,5 +1,6 @@
 "use server";
 
+import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { credentialsSchema } from "@/lib/validation";
@@ -7,15 +8,39 @@ import { getOrigin, safeNext } from "@/lib/url";
 
 export type AuthState = { error?: string; info?: string; email?: string };
 
-function translateAuthError(message: string) {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login credentials")) return "Email o contraseña incorrectos.";
-  if (m.includes("email not confirmed")) return "Confirma tu email antes de entrar. Revisa tu bandeja de entrada.";
-  if (m.includes("already registered") || m.includes("already been registered"))
-    return "Ya existe una cuenta con ese email. Inicia sesión.";
-  if (m.includes("rate limit")) return "Demasiados intentos. Espera un momento y vuelve a probar.";
-  if (m.includes("password")) return "La contraseña no cumple los requisitos (mínimo 8 caracteres).";
-  return "No se pudo completar. Inténtalo de nuevo.";
+function translateAuthError(error: AuthError) {
+  console.error("[auth]", error.code ?? error.name, error.status, error.message);
+
+  if (isAuthRetryableFetchError(error) || error.status === 0)
+    return "No se pudo conectar con Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL en Vercel y vuelve a desplegar.";
+
+  const m = error.message.toLowerCase();
+  if (m.includes("invalid api key") || m.includes("no api key"))
+    return "La clave de Supabase no es válida. Revisa NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en Vercel y vuelve a desplegar.";
+
+  switch (error.code) {
+    case "invalid_credentials":
+      return "Email o contraseña incorrectos.";
+    case "email_not_confirmed":
+      return "Confirma tu email antes de entrar. Revisa tu bandeja de entrada.";
+    case "user_already_exists":
+    case "email_exists":
+      return "Ya existe una cuenta con ese email. Inicia sesión.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "Demasiados intentos o emails enviados. Espera un rato y vuelve a probar.";
+    case "weak_password":
+      return "La contraseña es demasiado débil. Usa al menos 8 caracteres.";
+    case "email_address_invalid":
+      return "Supabase no acepta ese email. Prueba con otro.";
+    case "signup_disabled":
+    case "email_provider_disabled":
+      return "El registro con email está desactivado en Supabase (Authentication → Sign In / Providers → Email).";
+  }
+  if (m.includes("sending confirmation email") || m.includes("error sending"))
+    return "Supabase no pudo enviar el email de confirmación. Desactiva \"Confirm email\" en Supabase o configura un SMTP.";
+
+  return `No se pudo completar (${error.code ?? error.status ?? "error"}: ${error.message}).`;
 }
 
 export async function login(_: AuthState, formData: FormData): Promise<AuthState> {
@@ -28,7 +53,7 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: translateAuthError(error.message), email };
+  if (error) return { error: translateAuthError(error), email };
 
   redirect(safeNext(String(formData.get("next") ?? "")));
 }
@@ -47,7 +72,7 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
     ...parsed.data,
     options: { emailRedirectTo: `${origin}/auth/callback?next=/onboarding` },
   });
-  if (error) return { error: translateAuthError(error.message), email };
+  if (error) return { error: translateAuthError(error), email };
 
   // Si la confirmación por email está desactivada, ya hay sesión
   if (data.session) redirect("/onboarding");
