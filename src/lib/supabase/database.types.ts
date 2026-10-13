@@ -61,6 +61,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      follows: {
+        Row: {
+          created_at: string;
+          follower_id: string;
+          following_id: string;
+          status: "pending" | "accepted";
+        };
+        Insert: {
+          created_at?: string;
+          follower_id?: string;
+          following_id: string;
+          status?: "pending" | "accepted";
+        };
+        Update: {
+          created_at?: string;
+          follower_id?: string;
+          following_id?: string;
+          status?: "pending" | "accepted";
+        };
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey";
+            columns: ["follower_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "follows_following_id_fkey";
+            columns: ["following_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       outfits: {
         Row: {
           caption: string | null;
@@ -105,6 +141,10 @@ export type Database = {
         Args: { p_owner: string };
         Returns: boolean;
       };
+      follow_counts: {
+        Args: { p_user: string };
+        Returns: { followers: number; following: number }[];
+      };
       streak: {
         Args: { p: Database["public"]["Tables"]["profiles"]["Row"] };
         Returns: number;
@@ -129,3 +169,5 @@ export type Database = {
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Outfit = Database["public"]["Tables"]["outfits"]["Row"];
+export type Follow = Database["public"]["Tables"]["follows"]["Row"];
+export type FollowStatus = Follow["status"];
