@@ -2,12 +2,13 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Outfit } from "@/lib/supabase/database.types";
 
-export type OutfitWithUrl = Outfit & { url: string | null };
+export type WithUrl<T> = T & { url: string | null };
+export type OutfitWithUrl = WithUrl<Outfit>;
 
 const SIGNED_URL_TTL = 60 * 60; // 1 hora
 
 /** Añade una URL firmada a cada outfit (el bucket es privado). */
-export async function withSignedUrls(outfits: Outfit[]): Promise<OutfitWithUrl[]> {
+export async function withSignedUrls<T extends { image_path: string }>(outfits: T[]): Promise<WithUrl<T>[]> {
   if (outfits.length === 0) return [];
   const supabase = await createClient();
   const { data } = await supabase.storage

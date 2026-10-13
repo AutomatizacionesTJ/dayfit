@@ -11,7 +11,7 @@ Red social mobile-first de outfits diarios: un outfit por día, rachas 🔥, cue
 | 1 | Auth (email + Google), onboarding, perfil, ajustes, modo claro/oscuro, PWA | ✅ |
 | 2 | Subir outfit del día y racha | ✅ |
 | 3 | Seguir, solicitudes y cuentas privadas | ✅ |
-| 4 | Feeds Inicio y Descubrir | ⏳ |
+| 4 | Feeds Inicio y Descubrir, buscador de usuarios | ✅ |
 | 5 | Chat en tiempo real | ⏳ |
 
 ## Puesta en marcha en local
@@ -111,6 +111,7 @@ public/sw.js         Service worker (instalable + página sin conexión)
 - La fecha de cada outfit (`post_date`) la pone un trigger según la zona horaria del usuario, y la racha se recalcula en la base de datos a partir de esas fechas: el cliente no puede falsear ninguna de las dos.
 - Seguir: el estado (`accepted` o `pending`) lo decide un trigger según si la cuenta es pública o privada; el cliente no puede elegirlo. Solo la persona seguida puede aceptar una solicitud, y una aceptada no vuelve a pendiente. Las solicitudes pendientes solo las ven sus dos implicados.
 - `can_view_outfits` deja ver los outfits de una cuenta privada solo a sus seguidores aceptados; al rechazar o eliminar a un seguidor, deja de ver las fotos al instante. Al pasar una cuenta a pública, sus solicitudes pendientes se aceptan solas.
+- Los feeds (`home_feed`, `discover_feed`) y el buscador (`search_profiles`) son funciones SQL *security invoker*: se ejecutan con los permisos de quien mira, así que las políticas RLS se siguen aplicando y un feed nunca incluye outfits que no puedes ver.
 
 ## Aplicar migraciones sin la CLI
 

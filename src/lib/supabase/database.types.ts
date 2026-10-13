@@ -141,9 +141,27 @@ export type Database = {
         Args: { p_owner: string };
         Returns: boolean;
       };
+      discover_feed: {
+        Args: { p_before_at?: string; p_before_id?: string; p_limit?: number };
+        Returns: Database["public"]["CompositeTypes"]["feed_item"][];
+      };
       follow_counts: {
         Args: { p_user: string };
         Returns: { followers: number; following: number }[];
+      };
+      home_feed: {
+        Args: { p_before_at?: string; p_before_id?: string; p_limit?: number };
+        Returns: Database["public"]["CompositeTypes"]["feed_item"][];
+      };
+      search_profiles: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: {
+          id: string;
+          username: string;
+          full_name: string;
+          avatar_url: string | null;
+          is_private: boolean;
+        }[];
       };
       streak: {
         Args: { p: Database["public"]["Tables"]["profiles"]["Row"] };
@@ -162,7 +180,18 @@ export type Database = {
       [_ in never]: never;
     };
     CompositeTypes: {
-      [_ in never]: never;
+      feed_item: {
+        id: string;
+        user_id: string;
+        image_path: string;
+        caption: string | null;
+        post_date: string;
+        created_at: string;
+        username: string;
+        full_name: string;
+        avatar_url: string | null;
+        streak: number;
+      };
     };
   };
 };
@@ -171,3 +200,5 @@ export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Outfit = Database["public"]["Tables"]["outfits"]["Row"];
 export type Follow = Database["public"]["Tables"]["follows"]["Row"];
 export type FollowStatus = Follow["status"];
+export type FeedRow = Database["public"]["CompositeTypes"]["feed_item"];
+export type ProfileHit = Database["public"]["Functions"]["search_profiles"]["Returns"][number];
