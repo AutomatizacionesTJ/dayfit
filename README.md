@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# dayfit
 
-## Getting Started
+Red social mobile-first de outfits diarios: un outfit por día, rachas 🔥, cuentas públicas y privadas, feeds y chat 1:1. Se instala como PWA.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (Auth, Postgres + RLS, Storage, Realtime) · Vercel.
+
+## Estado
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1 | Auth (email + Google), onboarding, perfil, ajustes, modo claro/oscuro, PWA | ✅ |
+| 2 | Subir outfit del día y racha | ⏳ |
+| 3 | Seguir y cuentas privadas | ⏳ |
+| 4 | Feeds Inicio y Descubrir | ⏳ |
+| 5 | Chat en tiempo real | ⏳ |
+
+## Puesta en marcha en local
+
+Requisitos: Node 20+, Docker (para Supabase local).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx supabase start            # levanta Postgres, Auth, Storage y Realtime y aplica las migraciones
+cp .env.example .env.local    # rellena con la "API URL" y la "Publishable key" que imprime el comando anterior
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- En local la confirmación por email está desactivada: al registrarte entras directamente al onboarding.
+- Para ver los emails que envía Supabase local, abre Mailpit en http://127.0.0.1:54324.
+- Si cambias las migraciones: `npx supabase db reset`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Tests de base de datos (RLS)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Los tests de `supabase/tests/` comprueban las políticas de seguridad. Con Supabase local arrancado:
 
-## Learn More
+```bash
+for f in supabase/tests/0*.sql; do
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -q -o /dev/null \
+    -f supabase/tests/helpers.sql -f "$f" || exit 1
+done
+```
 
-To learn more about Next.js, take a look at the following resources:
+Cada test corre en una transacción que se deshace al final; imprime `ok …` por cada comprobación y se detiene en el primer `FALLO`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Tipos de la base de datos
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`src/lib/supabase/database.types.ts` se regenera con:
 
-## Deploy on Vercel
+```bash
+npx supabase gen types typescript --local > src/lib/supabase/database.types.ts
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Despliegue (Supabase + Vercel)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Crea el proyecto en Supabase** (https://supabase.com/dashboard) y aplica las migraciones:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <tu-project-ref>
+   npx supabase db push
+   ```
+2. **Auth → URL Configuration** en Supabase:
+   - *Site URL*: `https://tu-app.vercel.app`
+   - *Redirect URLs*: `https://tu-app.vercel.app/auth/callback` (y `https://*-tu-usuario.vercel.app/auth/callback` si quieres que funcionen las previews).
+3. **Importa el repo en Vercel** (https://vercel.com/new) y añade las variables de entorno:
+   - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys)
+   - `NEXT_PUBLIC_SITE_URL` = `https://tu-app.vercel.app`
+   - `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` = `true` si activas Google
+4. Despliega. Cada push a `main` vuelve a desplegar.
+
+### Login con Google (opcional)
+
+1. En Google Cloud Console → *APIs & Services → Credentials*, crea un **OAuth client ID** de tipo *Web application*.
+   - *Authorized redirect URI*: `https://<tu-project-ref>.supabase.co/auth/v1/callback`
+2. En Supabase → *Authentication → Sign In / Providers → Google*, actívalo y pega el Client ID y el Secret.
+3. Pon `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=true` en Vercel (y en `.env.local` si lo pruebas en local).
+
+En local, además, rellena `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, pon `enabled = true` en `[auth.external.google]` de `supabase/config.toml` y añade `http://127.0.0.1:54321/auth/v1/callback` como redirect URI en Google.
+
+### Instalar como app (PWA)
+
+Abre la URL de producción en el móvil: en Android, Chrome ofrece *Instalar aplicación*; en iPhone, Safari → Compartir → *Añadir a pantalla de inicio*. El service worker solo se registra en producción (`npm run build && npm start` en local).
+
+## Estructura
+
+```
+supabase/
+  migrations/        Tablas, funciones, políticas RLS y buckets de Storage (una migración por fase)
+  tests/             Tests SQL de las políticas RLS
+src/
+  app/
+    (auth)/          Login, registro y sus server actions
+    auth/callback/   Vuelta de los enlaces de email y de Google
+    onboarding/      Crear perfil tras registrarse
+    (app)/           Pantallas con barra inferior: Inicio, Descubrir, Subir, Mensajes, Perfil (/u/[username]), Ajustes
+    manifest.ts      Manifest de la PWA
+  components/        UI compartida
+  lib/
+    supabase/        Clientes de Supabase (navegador, servidor, proxy) y tipos
+    auth.ts          Sesión y perfil del usuario actual
+    image.ts         Compresión y redimensionado en el navegador
+  proxy.ts           Refresca la sesión y protege las rutas
+public/sw.js         Service worker (instalable + página sin conexión)
+```
+
+## Seguridad
+
+- Todas las tablas tienen RLS activado; los usuarios solo pueden escribir sus propias filas.
+- Las columnas sensibles (fechas, y más adelante rachas) no son editables desde el cliente: los permisos se conceden columna a columna.
+- Los avatares se suben a `avatars/{user_id}/…` y Storage rechaza subidas a carpetas ajenas.
