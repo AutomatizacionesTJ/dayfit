@@ -21,9 +21,12 @@ export type Database = {
           avatar_url: string | null;
           bio: string | null;
           created_at: string;
+          current_streak: number;
           full_name: string;
           id: string;
           is_private: boolean;
+          last_post_date: string | null;
+          max_streak: number;
           timezone: string;
           updated_at: string;
           username: string;
@@ -32,6 +35,9 @@ export type Database = {
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string;
+          current_streak?: number;
+          last_post_date?: string | null;
+          max_streak?: number;
           full_name: string;
           id: string;
           is_private?: boolean;
@@ -43,6 +49,9 @@ export type Database = {
           avatar_url?: string | null;
           bio?: string | null;
           created_at?: string;
+          current_streak?: number;
+          last_post_date?: string | null;
+          max_streak?: number;
           full_name?: string;
           id?: string;
           is_private?: boolean;
@@ -52,11 +61,58 @@ export type Database = {
         };
         Relationships: [];
       };
+      outfits: {
+        Row: {
+          caption: string | null;
+          created_at: string;
+          id: string;
+          image_path: string;
+          post_date: string;
+          user_id: string;
+        };
+        Insert: {
+          caption?: string | null;
+          created_at?: string;
+          id?: string;
+          image_path: string;
+          post_date?: string;
+          user_id?: string;
+        };
+        Update: {
+          caption?: string | null;
+          created_at?: string;
+          id?: string;
+          image_path?: string;
+          post_date?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "outfits_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      can_view_outfits: {
+        Args: { p_owner: string };
+        Returns: boolean;
+      };
+      streak: {
+        Args: { p: Database["public"]["Tables"]["profiles"]["Row"] };
+        Returns: number;
+      };
+      user_today: {
+        Args: { p_user: string };
+        Returns: string;
+      };
       username_available: {
         Args: { p_username: string };
         Returns: boolean;
@@ -72,3 +128,4 @@ export type Database = {
 };
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type Outfit = Database["public"]["Tables"]["outfits"]["Row"];

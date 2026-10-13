@@ -9,7 +9,7 @@ Red social mobile-first de outfits diarios: un outfit por día, rachas 🔥, cue
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Auth (email + Google), onboarding, perfil, ajustes, modo claro/oscuro, PWA | ✅ |
-| 2 | Subir outfit del día y racha | ⏳ |
+| 2 | Subir outfit del día y racha | ✅ |
 | 3 | Seguir y cuentas privadas | ⏳ |
 | 4 | Feeds Inicio y Descubrir | ⏳ |
 | 5 | Chat en tiempo real | ⏳ |
@@ -107,3 +107,9 @@ public/sw.js         Service worker (instalable + página sin conexión)
 - Todas las tablas tienen RLS activado; los usuarios solo pueden escribir sus propias filas.
 - Las columnas sensibles (fechas, y más adelante rachas) no son editables desde el cliente: los permisos se conceden columna a columna.
 - Los avatares se suben a `avatars/{user_id}/…` y Storage rechaza subidas a carpetas ajenas.
+- Las fotos de outfits van a un bucket **privado** (`outfits/{user_id}/…`) y se sirven con URLs firmadas de 1 hora; la política de lectura usa la misma función `can_view_outfits` que la tabla, así que una foto que no puedes ver tampoco se puede descargar.
+- La fecha de cada outfit (`post_date`) la pone un trigger según la zona horaria del usuario, y la racha se recalcula en la base de datos a partir de esas fechas: el cliente no puede falsear ninguna de las dos.
+
+## Aplicar migraciones sin la CLI
+
+Si prefieres no instalar la CLI de Supabase, pega cada archivo de `supabase/migrations/` (en orden, una sola vez cada uno) en Supabase → **SQL Editor** → **Run**.

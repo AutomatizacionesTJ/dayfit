@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StreakBadge } from "@/components/outfit/streak-badge";
+import { WeekStrip } from "@/components/outfit/week-strip";
 import { Avatar, ButtonLink } from "@/components/ui";
 import { requireProfile } from "@/lib/auth";
+import { addDays, effectiveStreak, todayIn } from "@/lib/dates";
+import { getOutfitsSince } from "@/lib/outfits";
+import { buildStrip } from "@/lib/strip";
 import { createClient } from "@/lib/supabase/server";
 
 async function getProfile(username: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, username, full_name, avatar_url, bio, is_private")
+    .select("id, username, full_name, avatar_url, bio, is_private, timezone, current_streak, max_streak, last_post_date")
     .eq("username", decodeURIComponent(username).toLowerCase())
     .maybeSingle();
   return data;
@@ -25,6 +30,11 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
   const [me, profile] = await Promise.all([requireProfile(), getProfile(username)]);
   if (!profile) notFound();
   const isMe = me.id === profile.id;
+  const today = todayIn(profile.timezone);
+  const canView = isMe || !profile.is_private;
+  const outfits = canView ? await getOutfitsSince(profile.id, addDays(today, -6)) : [];
+  const strip = buildStrip(today, outfits);
+  const postedToday = outfits.some((o) => o.post_date === today);
 
   return (
     <main className="pt-safe">
@@ -62,8 +72,26 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
         </div>
       </section>
 
-      <section className="mt-8 border-t border-line px-5 py-10 text-center text-sm text-fg-soft">
-        La racha 🔥 y los outfits de los últimos 7 días aparecerán aquí en la fase 2.
+      <section className="mt-6 px-5">
+        <StreakBadge streak={effectiveStreak(profile)} max={profile.max_streak} size="lg" />
+      </section>
+
+      <section className="mt-6 border-t border-line px-5 pt-5 pb-10">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="font-display text-2xl">Últimos 7 días</h2>
+          {isMe && !postedToday && (
+            <Link href="/upload" className="text-sm font-medium underline underline-offset-4">
+              Subir el de hoy
+            </Link>
+          )}
+        </div>
+        {canView ? (
+          <WeekStrip days={strip} />
+        ) : (
+          <p className="rounded-2xl bg-muted px-4 py-6 text-center text-sm text-fg-soft">
+            Esta cuenta es privada. Sus outfits solo los ven sus seguidores.
+          </p>
+        )}
       </section>
     </main>
   );
