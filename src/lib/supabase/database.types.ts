@@ -216,11 +216,67 @@ export type Database = {
           },
         ];
       };
+      wardrobe_items: {
+        Row: {
+          brand: string | null;
+          category: string;
+          color: string | null;
+          created_at: string;
+          id: string;
+          image_path: string | null;
+          notes: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          brand?: string | null;
+          category: string;
+          color?: string | null;
+          created_at?: string;
+          id?: string;
+          image_path?: string | null;
+          notes?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Update: {
+          brand?: string | null;
+          category?: string;
+          color?: string | null;
+          created_at?: string;
+          id?: string;
+          image_path?: string | null;
+          notes?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wardrobe_items_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      ai_daily_limit: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      ai_quota_remaining: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      consume_ai_quota: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       can_message: {
         Args: { p_other: string };
         Returns: boolean;
@@ -322,3 +378,4 @@ export type FeedRow = Database["public"]["CompositeTypes"]["feed_item"];
 export type ProfileHit = Database["public"]["Functions"]["search_profiles"]["Returns"][number];
 export type Message = Database["public"]["Tables"]["messages"]["Row"];
 export type ConversationSummary = Database["public"]["Functions"]["my_conversations"]["Returns"][number];
+export type WardrobeItem = Database["public"]["Tables"]["wardrobe_items"]["Row"];

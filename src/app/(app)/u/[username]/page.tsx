@@ -89,9 +89,14 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
 
         <div className="mt-5 flex items-start gap-2">
           {isMe ? (
-            <ButtonLink href="/settings" variant="secondary" className="h-10 flex-1">
-              Editar perfil
-            </ButtonLink>
+            <>
+              <ButtonLink href="/settings" variant="secondary" className="h-10 flex-1">
+                Editar perfil
+              </ButtonLink>
+              <ButtonLink href="/wardrobe" variant="secondary" className="h-10 flex-1">
+                Armario
+              </ButtonLink>
+            </>
           ) : (
             <>
               <FollowButton
