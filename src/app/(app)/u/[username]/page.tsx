@@ -7,10 +7,12 @@ import { FollowButton } from "@/components/profile/follow-button";
 import { Avatar, ButtonLink, buttonClass } from "@/components/ui";
 import { requireProfile } from "@/lib/auth";
 import { addDays, effectiveStreak, todayIn } from "@/lib/dates";
+import { canMessage } from "@/lib/chat";
 import { countPendingRequests, getFollowCounts, getFollowStatus } from "@/lib/follows";
 import { getOutfitsSince } from "@/lib/outfits";
 import { buildStrip } from "@/lib/strip";
 import { createClient } from "@/lib/supabase/server";
+import { startConversation } from "../../messages/actions";
 
 async function getProfile(username: string) {
   const supabase = await createClient();
@@ -33,10 +35,11 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
   if (!profile) notFound();
   const isMe = me.id === profile.id;
   const today = todayIn(profile.timezone);
-  const [followStatus, counts, requests] = await Promise.all([
+  const [followStatus, counts, requests, messageable] = await Promise.all([
     isMe ? null : getFollowStatus(me.id, profile.id),
     getFollowCounts(profile.id),
     isMe ? countPendingRequests(me.id) : 0,
+    isMe ? false : canMessage(profile.id),
   ]);
   const canView = isMe || !profile.is_private || followStatus === "accepted";
   const outfits = canView ? await getOutfitsSince(profile.id, addDays(today, -6)) : [];
@@ -97,14 +100,18 @@ export default async function ProfilePage({ params }: PageProps<"/u/[username]">
                 isPrivate={profile.is_private}
                 username={profile.username}
               />
-              <button
-                type="button"
-                disabled
-                title="Los mensajes llegan en la fase 5"
-                className={buttonClass("secondary", "h-10 flex-1")}
-              >
-                Mensaje
-              </button>
+              <form action={startConversation} className="flex-1">
+                <input type="hidden" name="other" value={profile.id} />
+                <input type="hidden" name="back" value={`/u/${profile.username}`} />
+                <button
+                  type="submit"
+                  disabled={!messageable}
+                  title={messageable ? undefined : "Cuenta privada: tenéis que seguiros para escribiros"}
+                  className={buttonClass("secondary", "h-10 w-full")}
+                >
+                  Mensaje
+                </button>
+              </form>
             </>
           )}
         </div>

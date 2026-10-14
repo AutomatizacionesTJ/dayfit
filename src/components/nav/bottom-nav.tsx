@@ -2,13 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Item = { href: string; label: string; icon: ReactNode; match: (p: string) => boolean };
 
+/** Conversaciones con mensajes sin leer; se actualiza en tiempo real. */
+function useUnreadCount(pathname: string) {
+  const [supabase] = useState(createClient);
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () =>
+      supabase.rpc("unread_conversations").then(({ data }) => {
+        if (active && typeof data === "number") setCount(data);
+      });
+    refresh();
+    const channel = supabase
+      .channel("unread-badge")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, refresh)
+      .subscribe();
+    window.addEventListener("dayfit:unread", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("dayfit:unread", refresh);
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, pathname]);
+
+  return count;
+}
+
 export function BottomNav({ username }: { username: string }) {
   const pathname = usePathname();
+  const unread = useUnreadCount(pathname);
   const profileHref = `/u/${username}`;
+
+  // Dentro de un chat la barra se oculta para dejar sitio al teclado
+  if (/^\/messages\/[^/]+/.test(pathname)) return null;
 
   const items: Item[] = [
     { href: "/", label: "Inicio", icon: <HomeIcon />, match: (p) => p === "/" },
@@ -41,7 +73,15 @@ export function BottomNav({ username }: { username: string }) {
                     : `flex h-11 w-12 flex-col items-center justify-center gap-0.5 transition ${active ? "text-fg" : "text-fg-soft"}`
                 }
               >
-                {item.icon}
+                <span className="relative">
+                  {item.icon}
+                  {item.href === "/messages" && unread > 0 && (
+                    <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-flame px-1 text-[10px] font-semibold text-white tabular-nums">
+                      {unread > 9 ? "9+" : unread}
+                      <span className="sr-only"> conversaciones sin leer</span>
+                    </span>
+                  )}
+                </span>
                 {!isUpload && (
                   <span className={`h-1 w-1 rounded-full ${active ? "bg-fg" : "bg-transparent"}`} />
                 )}
