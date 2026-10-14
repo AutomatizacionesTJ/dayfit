@@ -12,7 +12,7 @@ Red social mobile-first de outfits diarios: un outfit por día, rachas 🔥, cue
 | 2 | Subir outfit del día y racha | ✅ |
 | 3 | Seguir, solicitudes y cuentas privadas | ✅ |
 | 4 | Feeds Inicio y Descubrir, buscador de usuarios | ✅ |
-| 5 | Chat en tiempo real | ⏳ |
+| 5 | Chat 1:1 en tiempo real con no leídos | ✅ |
 
 ## Puesta en marcha en local
 
@@ -112,6 +112,8 @@ public/sw.js         Service worker (instalable + página sin conexión)
 - Seguir: el estado (`accepted` o `pending`) lo decide un trigger según si la cuenta es pública o privada; el cliente no puede elegirlo. Solo la persona seguida puede aceptar una solicitud, y una aceptada no vuelve a pendiente. Las solicitudes pendientes solo las ven sus dos implicados.
 - `can_view_outfits` deja ver los outfits de una cuenta privada solo a sus seguidores aceptados; al rechazar o eliminar a un seguidor, deja de ver las fotos al instante. Al pasar una cuenta a pública, sus solicitudes pendientes se aceptan solas.
 - Los feeds (`home_feed`, `discover_feed`) y el buscador (`search_profiles`) son funciones SQL *security invoker*: se ejecutan con los permisos de quien mira, así que las políticas RLS se siguen aplicando y un feed nunca incluye outfits que no puedes ver.
+- Chat: solo puedes escribir a una cuenta pública, o a una privada si hay un seguimiento aceptado en cualquier dirección (`can_message`). Se comprueba al crear la conversación y en cada mensaje, así que si te dejan de seguir ya no puedes escribir (el historial se conserva). Las conversaciones solo se crean con `get_or_create_conversation` y nadie ve mensajes de conversaciones ajenas.
+- El tiempo real usa Supabase Realtime sobre la tabla `messages`, que respeta RLS: cada persona solo recibe los mensajes de sus propias conversaciones. La migración de la fase 5 añade la tabla a la publicación `supabase_realtime`; si los mensajes no llegan solos, comprueba en Supabase → **Database → Publications → supabase_realtime** que `messages` está marcada.
 
 ## Aplicar migraciones sin la CLI
 
