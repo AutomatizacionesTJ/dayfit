@@ -13,6 +13,7 @@ Red social mobile-first de outfits diarios: un outfit por día, rachas 🔥, cue
 | 3 | Seguir, solicitudes y cuentas privadas | ✅ |
 | 4 | Feeds Inicio y Descubrir, buscador de usuarios | ✅ |
 | 5 | Chat 1:1 en tiempo real con no leídos | ✅ |
+| 6 | Armario y análisis de prendas con IA (2 al día por usuario) | ✅ |
 
 ## Puesta en marcha en local
 
@@ -65,6 +66,7 @@ npx supabase gen types typescript --local > src/lib/supabase/database.types.ts
    - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Supabase → Project Settings → API Keys)
    - `NEXT_PUBLIC_SITE_URL` = `https://tu-app.vercel.app`
    - `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED` = `true` si activas Google
+   - `ANTHROPIC_API_KEY` (opcional): clave de la API de Claude para analizar prendas. Se crea en https://console.anthropic.com → **API Keys** (la API se paga aparte de los planes de Claude.ai, con saldo prepago). Sin ella, el armario funciona igual pero sin el botón de IA.
 4. Despliega. Cada push a `main` vuelve a desplegar.
 
 ### Login con Google (opcional)
@@ -91,12 +93,14 @@ src/
     (auth)/          Login, registro y sus server actions
     auth/callback/   Vuelta de los enlaces de email y de Google
     onboarding/      Crear perfil tras registrarse
-    (app)/           Pantallas con barra inferior: Inicio, Descubrir, Subir, Mensajes, Perfil (/u/[username]), Ajustes
+    (app)/           Pantallas con barra inferior: Inicio, Descubrir, Subir, Mensajes, Perfil (/u/[username]), Armario, Ajustes
+    api/wardrobe/analyze/  Análisis de una prenda con la API de Claude
     manifest.ts      Manifest de la PWA
   components/        UI compartida
   lib/
     supabase/        Clientes de Supabase (navegador, servidor, proxy) y tipos
     auth.ts          Sesión y perfil del usuario actual
+    ai.ts            Llamada a la API de Claude (solo servidor)
     image.ts         Compresión y redimensionado en el navegador
   proxy.ts           Refresca la sesión y protege las rutas
 public/sw.js         Service worker (instalable + página sin conexión)
@@ -114,6 +118,9 @@ public/sw.js         Service worker (instalable + página sin conexión)
 - Los feeds (`home_feed`, `discover_feed`) y el buscador (`search_profiles`) son funciones SQL *security invoker*: se ejecutan con los permisos de quien mira, así que las políticas RLS se siguen aplicando y un feed nunca incluye outfits que no puedes ver.
 - Chat: solo puedes escribir a una cuenta pública, o a una privada si hay un seguimiento aceptado en cualquier dirección (`can_message`). Se comprueba al crear la conversación y en cada mensaje, así que si te dejan de seguir ya no puedes escribir (el historial se conserva). Las conversaciones solo se crean con `get_or_create_conversation` y nadie ve mensajes de conversaciones ajenas.
 - El tiempo real usa Supabase Realtime sobre la tabla `messages`, que respeta RLS: cada persona solo recibe los mensajes de sus propias conversaciones. La migración de la fase 5 añade la tabla a la publicación `supabase_realtime`; si los mensajes no llegan solos, comprueba en Supabase → **Database → Publications → supabase_realtime** que `messages` está marcada.
+
+- Armario: las prendas (`wardrobe_items`) y sus fotos (bucket privado `wardrobe/{user_id}/…`) solo las ve y edita su dueño.
+- IA: la clave `ANTHROPIC_API_KEY` solo existe en el servidor; el navegador nunca habla con la API de Claude. Cada usuario tiene **2 análisis al día** (según su zona horaria). El contador (`ai_usage`) no es accesible desde el cliente: solo lo modifica `consume_ai_quota()`, que gasta el análisis de forma atómica **antes** de llamar a la IA, así que no se puede saltar el límite con peticiones en paralelo. Para cambiar el límite, edita `ai_daily_limit()` en la migración de la fase 6 y vuelve a ejecutar esa función.
 
 ## Aplicar migraciones sin la CLI
 
